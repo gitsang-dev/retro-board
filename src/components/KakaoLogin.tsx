@@ -7,7 +7,11 @@ export function KakaoLogin() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'kakao',
         options: {
-          redirectTo: window.location.origin
+          redirectTo: window.location.origin,
+          queryParams: {
+            prompt: 'consent',  // 동의화면 무조건 표시
+            scope: 'profile_nickname profile_image'  // 필요한 스코프 지정
+          }
         }
       })
       
