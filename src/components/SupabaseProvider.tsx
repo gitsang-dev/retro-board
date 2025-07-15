@@ -1,15 +1,17 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { Session, User } from '@supabase/supabase-js'
+import { Session, User, SupabaseClient } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
 interface SupabaseContextType {
   user: User | null
   session: Session | null
+  supabase: SupabaseClient
 }
 
 const SupabaseContext = createContext<SupabaseContextType>({
   user: null,
   session: null,
+  supabase,
 })
 
 export function useSupabase() {
@@ -22,37 +24,40 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   const saveUserProfile = async (user: User) => {
     try {
-      const { data: existingProfile, error: fetchError } = await supabase
-        .from('profiles')
-        .select()
-        .eq('id', user.id)
-        .single()
+      // users 테이블에 사용자 정보 저장
+      const { error: userError } = await supabase
+        .from('users')
+        .upsert({
+          id: user.id,
+          email: user.email,
+          name: user.user_metadata.full_name,
+          avatar_url: user.user_metadata.avatar_url,
+          last_login: new Date().toISOString(),
+        })
 
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        console.error('프로필 조회 에러:', fetchError)
+      if (userError) {
+        console.error('사용자 정보 저장 에러:', userError)
         return
       }
 
-      if (!existingProfile) {
-        const { error: insertError } = await supabase
-          .from('profiles')
-          .insert([
-            {
-              id: user.id,
-              email: user.email,
-              full_name: user.user_metadata.full_name,
-              avatar_url: user.user_metadata.avatar_url,
-              provider: user.app_metadata.provider,
-              created_at: new Date().toISOString(),
-            },
-          ])
+      // profiles 테이블에도 사용자 정보 저장
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata.full_name,
+          avatar_url: user.user_metadata.avatar_url,
+          provider: user.app_metadata.provider,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
 
-        if (insertError) {
-          console.error('프로필 저장 에러:', insertError)
-        }
+      if (profileError) {
+        console.error('프로필 저장 에러:', profileError)
       }
     } catch (error) {
-      console.error('프로필 처리 에러:', error)
+      console.error('사용자 정보 처리 에러:', error)
     }
   }
 
@@ -81,7 +86,7 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <SupabaseContext.Provider value={{ user, session }}>
+    <SupabaseContext.Provider value={{ user, session, supabase }}>
       {children}
     </SupabaseContext.Provider>
   )

@@ -1,155 +1,246 @@
-import { useState } from "react";
-import { RotateCcw, Settings, Users } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RetroSection, Post } from "./RetroSection";
+import { useState, useEffect, useMemo } from 'react'
+import { RetroSection } from './RetroSection'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
+import { useMobile } from '@/hooks/use-mobile'
+import { useSupabase } from './SupabaseProvider'
+import type { Post as UIPost } from './RetroSection'
+import type { Post as DBPost } from '../types/post'
 
-export const RetroBoard = () => {
-  const [sortBy, setSortBy] = useState<'recent' | 'likes'>('recent');
-  
-  // 임시 데이터 (나중에 Supabase로 대체)
-  const [posts, setPosts] = useState<{
-    keep: Post[];
-    problem: Post[];
-    try: Post[];
-  }>({
-    keep: [
-      {
-        id: '1',
-        title: '팀 커뮤니케이션이 활발했음',
-        content: '매일 스탠드업 미팅을 통해 서로의 진행상황을 공유하고, 막히는 부분에 대해 빠르게 도움을 받을 수 있었습니다. 특히 슬랙을 통한 비동기 소통도 효과적이었어요.',
-        author: '김개발',
-        note: '다음 스프린트에도 계속 유지하면 좋을 것 같아요',
-        likes: 5,
-        comments: [
-          {
-            id: 'c1',
-            author: '박디자인',
-            content: '정말 동감해요! 소통이 원활해서 프로젝트가 순조롭게 진행된 것 같아요.',
-            createdAt: new Date(Date.now() - 30 * 60 * 1000)
-          }
-        ],
-        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000)
-      }
-    ],
-    problem: [
-      {
-        id: '2',
-        title: '코드 리뷰 시간이 부족했음',
-        content: '일정에 쫓겨서 코드 리뷰를 충분히 하지 못했습니다. 그 결과 일부 버그가 프로덕션까지 올라가게 되었어요.',
-        author: '이백엔드',
-        likes: 3,
-        comments: [],
-        createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000)
-      }
-    ],
-    try: [
-      {
-        id: '3',
-        title: '페어 프로그래밍 도입해보기',
-        content: '복잡한 기능 개발 시 페어 프로그래밍을 통해 코드 품질을 높이고 지식 공유도 함께 해보면 어떨까요?',
-        author: '최프론트',
-        note: '일주일에 2-3시간 정도 시범 운영',
-        likes: 7,
-        comments: [],
-        createdAt: new Date(Date.now() - 30 * 60 * 1000)
-      }
-    ]
-  });
+export function RetroBoard() {
+  const isMobile = useMobile()
+  const { supabase } = useSupabase()
+  const [sortBy, setSortBy] = useState<'latest' | 'likes'>('latest')
+  const [rawPosts, setRawPosts] = useState<DBPost[]>([])
 
-  const handleAddPost = (section: 'keep' | 'problem' | 'try') => {
-    // TODO: 포스트 작성 모달 열기
-    console.log(`Add post to ${section}`);
-  };
+  // 포스트 데이터를 가공하고 정렬하는 로직
+  const processedPosts = useMemo(() => {
+    // 1. 먼저 모든 포스트를 UIPost 형식으로 변환
+    const uiPosts = rawPosts.map(post => ({
+      id: post.id,
+      title: post.title,
+      content: post.content,
+      author: post.users?.name || 'Unknown',
+      authorId: post.author_id,
+      note: post.note,
+      likes: post.likes_count || 0,
+      comments: [],
+      createdAt: new Date(post.created_at),
+      section: post.section
+    }))
 
-  const handleLikePost = (postId: string) => {
-    // TODO: 좋아요 토글 로직
-    console.log(`Like post ${postId}`);
-  };
+    // 2. 정렬 함수 정의
+    const sortPosts = (posts: typeof uiPosts) => {
+      return [...posts].sort((a, b) => {
+        if (sortBy === 'likes') {
+          // 좋아요 수가 다르면 좋아요 수로 정렬
+          const likeDiff = b.likes - a.likes
+          if (likeDiff !== 0) return likeDiff
+          // 좋아요 수가 같으면 최신순으로 정렬
+          return b.createdAt.getTime() - a.createdAt.getTime()
+        } else {
+          // 최신순 정렬
+          return b.createdAt.getTime() - a.createdAt.getTime()
+        }
+      })
+    }
 
-  const handleCommentPost = (postId: string, comment: string) => {
-    // TODO: 댓글 추가 로직
-    console.log(`Comment on post ${postId}: ${comment}`);
-  };
+    // 3. 정렬된 포스트를 섹션별로 분류
+    const sortedAndGrouped = sortPosts(uiPosts).reduce<Record<string, UIPost[]>>(
+      (acc, post) => {
+        if (!acc[post.section]) {
+          acc[post.section] = []
+        }
+        acc[post.section].push(post)
+        return acc
+      },
+      { keep: [], problem: [], try: [] }
+    )
 
-  const getSortedPosts = (sectionPosts: Post[]) => {
-    return [...sectionPosts].sort((a, b) => {
-      if (sortBy === 'likes') {
-        return b.likes - a.likes;
-      }
-      return b.createdAt.getTime() - a.createdAt.getTime();
-    });
-  };
+    return sortedAndGrouped
+  }, [rawPosts, sortBy])
+
+  const loadPosts = async () => {
+    try {
+      // posts 테이블과 likes 테이블을 조인하여 정확한 좋아요 수를 가져옴
+      const { data, error } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          users (
+            name
+          ),
+          likes:likes_count
+        `)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      setRawPosts(data as (DBPost & { users: { name: string } })[])
+    } catch (error) {
+      console.error('Error loading posts:', error)
+    }
+  }
+
+  const handleLikePost = async (postId: string) => {
+    try {
+      await loadPosts() // 좋아요 이벤트 후 즉시 데이터 새로고침
+    } catch (error) {
+      console.error('Error handling like:', error)
+    }
+  }
+
+  useEffect(() => {
+    loadPosts()
+
+    const channel = supabase
+      .channel('posts_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'posts',
+        },
+        loadPosts
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'likes',
+        },
+        loadPosts
+      )
+      .subscribe()
+
+    return () => {
+      channel.unsubscribe()
+    }
+  }, [])
+
+  const sections = [
+    {
+      id: 'keep',
+      title: 'Keep',
+      subtitle: '잘하고 있는 점을 돌아봐요',
+      color: 'bg-[#4CAF50]/10',
+      headerColor: 'bg-[#4CAF50]',
+      textColor: 'text-white',
+      icon: 'Keep.png'
+    },
+    {
+      id: 'problem',
+      title: 'Problem',
+      subtitle: '아쉬운 점을 돌아봐요',
+      color: 'bg-[#F44336]/10',
+      headerColor: 'bg-[#F44336]',
+      textColor: 'text-white',
+      icon: 'Problem.png'
+    },
+    {
+      id: 'try',
+      title: 'Try',
+      subtitle: '새롭게 시도할 점을 제안해요',
+      color: 'bg-[#FFC107]/10',
+      headerColor: 'bg-[#FFC107]',
+      textColor: 'text-white',
+      icon: 'Try.png'
+    }
+  ]
+
+  const SelectBox = () => (
+    <div className="flex justify-end mb-6">
+      <Select value={sortBy} onValueChange={(value: 'latest' | 'likes') => setSortBy(value)}>
+        <SelectTrigger className="w-[140px]">
+          <SelectValue placeholder="정렬 기준" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="latest">최신순</SelectItem>
+          <SelectItem value="likes">좋아요순</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  )
+
+  if (isMobile) {
+    return (
+      <div className="p-4">
+        <SelectBox />
+        <Tabs defaultValue="keep" className="w-full">
+          <TabsList className="w-full grid grid-cols-3 mb-4">
+            {sections.map(section => (
+              <TabsTrigger
+                key={section.id}
+                value={section.id}
+                className={`data-[state=active]:${section.headerColor} data-[state=active]:${section.textColor} data-[state=inactive]:bg-white data-[state=inactive]:text-gray-600`}
+              >
+                {section.title}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {sections.map(section => (
+            <TabsContent key={section.id} value={section.id}>
+              <RetroSection
+                title={
+                  <div className="flex items-center gap-2">
+                    <img 
+                      src={`/${section.icon}`} 
+                      alt={`${section.title} icon`}
+                      className="w-6 h-6 object-contain"
+                    />
+                    {section.title}
+                  </div>
+                }
+                subtitle={section.subtitle}
+                color={section.color}
+                headerColor={section.headerColor}
+                textColor={section.textColor}
+                type={section.id as 'keep' | 'problem' | 'try'}
+                posts={processedPosts[section.id]}
+                onPostCreated={loadPosts}
+                onLikePost={handleLikePost}
+                onCommentPost={() => {}}
+                onPostUpdated={loadPosts}
+              />
+            </TabsContent>
+          ))}
+        </Tabs>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* 헤더 */}
-      <header className="bg-card border-b border-border px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-primary text-primary-foreground p-2 rounded-lg">
-              <RotateCcw className="h-6 w-6" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">RetroBoard</h1>
-              <p className="text-sm text-muted-foreground">팀 회고를 통해 함께 성장해요</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <Select value={sortBy} onValueChange={(value) => setSortBy(value as 'recent' | 'likes')}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="recent">최신순</SelectItem>
-                <SelectItem value="likes">좋아요순</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Button variant="outline" size="sm">
-              <Users className="h-4 w-4 mr-2" />
-              로그인
-            </Button>
-            
-            <Button variant="outline" size="sm">
-              <Settings className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      {/* 메인 콘텐츠 */}
-      <main className="max-w-7xl mx-auto p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="space-y-6">
+      <SelectBox />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {sections.map(section => (
           <RetroSection
-            type="keep"
-            title="Keep"
-            posts={getSortedPosts(posts.keep)}
-            onAddPost={() => handleAddPost('keep')}
+            key={section.id}
+            title={
+              <div className="flex items-center gap-2">
+                <img 
+                  src={`/${section.icon}`} 
+                  alt={`${section.title} icon`}
+                  className="w-6 h-6 object-contain"
+                />
+                {section.title}
+              </div>
+            }
+            subtitle={section.subtitle}
+            color={section.color}
+            headerColor={section.headerColor}
+            textColor={section.textColor}
+            type={section.id as 'keep' | 'problem' | 'try'}
+            posts={processedPosts[section.id]}
+            onPostCreated={loadPosts}
             onLikePost={handleLikePost}
-            onCommentPost={handleCommentPost}
+            onCommentPost={() => {}}
+            onPostUpdated={loadPosts}
           />
-          
-          <RetroSection
-            type="problem"
-            title="Problem"
-            posts={getSortedPosts(posts.problem)}
-            onAddPost={() => handleAddPost('problem')}
-            onLikePost={handleLikePost}
-            onCommentPost={handleCommentPost}
-          />
-          
-          <RetroSection
-            type="try"
-            title="Try"
-            posts={getSortedPosts(posts.try)}
-            onAddPost={() => handleAddPost('try')}
-            onLikePost={handleLikePost}
-            onCommentPost={handleCommentPost}
-          />
-        </div>
-      </main>
+        ))}
+      </div>
     </div>
-  );
-};
+  )
+}
