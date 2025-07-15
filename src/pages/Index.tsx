@@ -10,7 +10,17 @@ export default function Index() {
 
   const handleLogout = async () => {
     try {
+      // 세션 확인
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError) {
+        console.error('세션 확인 에러:', sessionError)
+        // 세션 에러가 있더라도 로그아웃 시도
+      }
+
+      // 로그아웃 시도
       const { error } = await supabase.auth.signOut()
+      
       if (error) {
         console.error('로그아웃 에러:', error)
         toast({
@@ -20,9 +30,12 @@ export default function Index() {
         })
         return
       }
+
+      // 로컬 스토리지 정리
+      localStorage.removeItem('supabase.auth.token')
       
-      // 로그아웃 성공 시 페이지 새로고침
-      window.location.reload()
+      // 페이지 새로고침 대신 홈으로 리다이렉트
+      window.location.href = '/'
     } catch (error) {
       console.error('로그아웃 에러:', error)
       toast({
