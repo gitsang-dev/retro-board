@@ -10,39 +10,60 @@ export default function Index() {
 
   const handleLogout = async () => {
     try {
-      // 세션 확인
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      // 1. 먼저 현재 세션 상태 확인
+      const currentSession = await supabase.auth.getSession()
       
-      if (sessionError) {
-        console.error('세션 확인 에러:', sessionError)
-        // 세션 에러가 있더라도 로그아웃 시도
-      }
-
-      // 로그아웃 시도
-      const { error } = await supabase.auth.signOut()
-      
-      if (error) {
-        console.error('로그아웃 에러:', error)
-        toast({
-          title: "로그아웃 실패",
-          description: "다시 시도해주세요.",
-          variant: "destructive",
+      // 2. 강제 로그아웃 처리
+      await Promise.all([
+        // Supabase 세션 종료 시도
+        supabase.auth.signOut().catch(e => console.warn('Supabase signOut error:', e)),
+        
+        // 쿠키 제거
+        document.cookie.split(";").forEach((c) => {
+          document.cookie = c
+            .replace(/^ +/, "")
+            .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        }),
+        
+        // 로컬 스토리지 정리
+        new Promise<void>((resolve) => {
+          try {
+            localStorage.clear();
+            sessionStorage.clear();
+          } catch (e) {
+            console.warn('Storage clear error:', e);
+          }
+          resolve();
         })
-        return
-      }
+      ]);
 
-      // 로컬 스토리지 정리
-      localStorage.removeItem('supabase.auth.token')
-      
-      // 페이지 새로고침 대신 홈으로 리다이렉트
-      window.location.href = '/'
-    } catch (error) {
-      console.error('로그아웃 에러:', error)
+      // 3. 성공 메시지 표시
       toast({
-        title: "로그아웃 실패",
-        description: "다시 시도해주세요.",
-        variant: "destructive",
-      })
+        title: "로그아웃 완료",
+        description: "안전하게 로그아웃되었습니다.",
+      });
+
+      // 4. 잠시 후 페이지 새로고침 (완전한 상태 초기화를 위해)
+      setTimeout(() => {
+        window.location.href = window.location.origin;
+      }, 1000);
+
+    } catch (error) {
+      console.error('Logout process error:', error);
+      
+      // 5. 에러 발생 시에도 강제 로그아웃 시도
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = window.location.origin;
+      } catch (e) {
+        console.error('Force logout error:', e);
+        toast({
+          title: "로그아웃 오류",
+          description: "브라우저를 새로고침 해주세요.",
+          variant: "destructive",
+        });
+      }
     }
   }
 
