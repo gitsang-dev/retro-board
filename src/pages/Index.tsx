@@ -2,16 +2,34 @@ import { KakaoLogin } from "@/components/KakaoLogin"
 import { useSupabase } from "@/components/SupabaseProvider"
 import { Button } from "@/components/ui/button"
 import { RetroBoard } from "@/components/RetroBoard"
-import { supabase } from "@/lib/supabase"
+import { useToast } from "@/hooks/use-toast"
 
 export default function Index() {
-  const { user, session } = useSupabase()
+  const { user, supabase } = useSupabase()
+  const { toast } = useToast()
 
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut()
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        console.error('로그아웃 에러:', error)
+        toast({
+          title: "로그아웃 실패",
+          description: "다시 시도해주세요.",
+          variant: "destructive",
+        })
+        return
+      }
+      
+      // 로그아웃 성공 시 페이지 새로고침
+      window.location.reload()
     } catch (error) {
       console.error('로그아웃 에러:', error)
+      toast({
+        title: "로그아웃 실패",
+        description: "다시 시도해주세요.",
+        variant: "destructive",
+      })
     }
   }
 
