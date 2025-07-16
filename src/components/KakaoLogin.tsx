@@ -9,13 +9,21 @@ export function KakaoLogin() {
         options: {
           redirectTo: window.location.origin,
           queryParams: {
-            prompt: 'consent',  // 동의화면 무조건 표시
-            scope: 'profile_nickname profile_image'  // 필요한 스코프 지정
+            prompt: 'consent',
+            scope: 'account_email profile_nickname profile_image'  // 이메일 스코프 추가
           }
         }
       })
       
-      if (error) throw error
+      if (error) {
+        console.error('카카오 로그인 에러:', error)
+        throw error
+      }
+      
+      // 모바일 환경에서 리다이렉트 처리
+      if (data?.url) {
+        window.location.href = data.url
+      }
       
     } catch (error) {
       console.error('카카오 로그인 에러:', error)
