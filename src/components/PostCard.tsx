@@ -8,11 +8,23 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from './ui/tooltip'
 import { useSupabase } from './SupabaseProvider'
 import { useToast } from '../hooks/use-toast'
 import { EditPostModal } from './EditPostModal'
 import { CommentModal } from './CommentModal'
 import type { Post } from './RetroSection'
+
+interface LikeWithUser {
+  users: {
+    name: string
+  }
+}
 
 interface PostCardProps {
   post: Post
@@ -27,6 +39,7 @@ export function PostCard({ post, onPostUpdated }: PostCardProps) {
   const [isLiked, setIsLiked] = useState(false)
   const [likesCount, setLikesCount] = useState(post.likes)
   const [commentsCount, setCommentsCount] = useState(0)
+  const [likedUsers, setLikedUsers] = useState<{ name: string }[]>([])
   const { user, supabase } = useSupabase()
   const { toast } = useToast()
   const isAuthor = user?.id === post.authorId
@@ -35,34 +48,53 @@ export function PostCard({ post, onPostUpdated }: PostCardProps) {
   const checkLikeStatus = async () => {
     if (!user) return
 
-    const { data, error } = await supabase
-      .from('likes')
-      .select()
-      .eq('post_id', post.id)
-      .eq('user_id', user.id)
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from('likes')
+        .select('*')
+        .match({ post_id: post.id, user_id: user.id })
+        .maybeSingle()
 
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error checking like status:', error)
-      return
+      if (error) {
+        console.error('Error checking like status:', error)
+        return
+      }
+
+      setIsLiked(!!data)
+    } catch (error) {
+      console.error('Error in checkLikeStatus:', error)
     }
-
-    setIsLiked(!!data)
   }
 
-  // 좋아요 수 가져오기
+  // 좋아요 수와 사용자 목록 가져오기
   const getLikesCount = async () => {
-    const { count, error } = await supabase
-      .from('likes')
-      .select('*', { count: 'exact' })
-      .eq('post_id', post.id)
+    try {
+      const { data, error } = await supabase
+        .from('likes')
+        .select(`
+          users (
+            name
+          )
+        `)
+        .eq('post_id', post.id)
+        .returns<LikeWithUser[]>()
 
-    if (error) {
-      console.error('Error getting likes count:', error)
-      return
+      if (error) {
+        console.error('Error getting likes:', error)
+        return
+      }
+
+      if (!data) return
+
+      const userNames = data
+        .map(like => like.users?.name)
+        .filter((name): name is string => !!name)
+
+      setLikesCount(userNames.length)
+      setLikedUsers(userNames.map(name => ({ name })))
+    } catch (error) {
+      console.error('Error in getLikesCount:', error)
     }
-
-    setLikesCount(count || 0)
   }
 
   // 댓글 수 가져오기
@@ -168,61 +200,50 @@ export function PostCard({ post, onPostUpdated }: PostCardProps) {
       return
     }
 
-    // 낙관적 업데이트
-    setIsLiked((prev) => !prev)
-    setLikesCount((prev) => (isLiked ? prev - 1 : prev + 1))
-
     try {
       if (isLiked) {
         // 좋아요 취소
         const { error } = await supabase
           .from('likes')
           .delete()
-          .eq('post_id', post.id)
-          .eq('user_id', user.id)
-          .single()
+          .match({ post_id: post.id, user_id: user.id })
 
         if (error) {
-          if (error.code === 'PGRST116') {
-            // 이미 삭제된 경우
-            return
-          }
+          console.error('Error removing like:', error)
           throw error
         }
+
+        // 성공적으로 삭제된 경우에만 상태 업데이트
+        setIsLiked(false)
+        setLikesCount(prev => Math.max(0, prev - 1))
+        setLikedUsers(prev => prev.filter(u => u.name !== user?.user_metadata?.name))
       } else {
-        // 중복 좋아요 체크
-        const { data: existingLike } = await supabase
-          .from('likes')
-          .select()
-          .eq('post_id', post.id)
-          .eq('user_id', user.id)
-          .single()
-
-        if (existingLike) {
-          // 이미 좋아요가 있는 경우
-          return
-        }
-
         // 좋아요 추가
         const { error } = await supabase
           .from('likes')
-          .insert({
+          .insert([{
             post_id: post.id,
             user_id: user.id
-          })
-          .single()
+          }])
 
-        if (error) throw error
+        if (error) {
+          console.error('Error adding like:', error)
+          throw error
+        }
+
+        // 성공적으로 추가된 경우에만 상태 업데이트
+        setIsLiked(true)
+        setLikesCount(prev => prev + 1)
+        setLikedUsers(prev => [
+          ...prev,
+          { name: user?.user_metadata?.name || 'Unknown' }
+        ])
       }
     } catch (error) {
-      // 에러 발생 시 상태 롤백
-      setIsLiked((prev) => !prev)
-      setLikesCount((prev) => (isLiked ? prev + 1 : prev - 1))
-      
       console.error('Error toggling like:', error)
       toast({
         title: '오류 발생',
-        description: '좋아요 처리 중 오류가 발생했습니다.',
+        description: '좋아요 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
         variant: 'destructive',
       })
     }
@@ -289,15 +310,34 @@ export function PostCard({ post, onPostUpdated }: PostCardProps) {
         )}
 
         <div className="flex gap-3 mt-4">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={handleLike}
-            className={`h-8 px-2 hover:text-foreground ${isLiked ? 'text-blue-500' : 'text-muted-foreground'}`}
-          >
-            <ThumbsUp className="h-4 w-4 mr-1" />
-            {likesCount}
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="inline-block">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={handleLike}
+                    className={`h-8 px-2 hover:text-foreground ${isLiked ? 'text-blue-500' : 'text-muted-foreground'}`}
+                  >
+                    <ThumbsUp className="h-4 w-4 mr-1" />
+                    {likesCount}
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="center">
+                <div className="text-sm py-1">
+                  {likedUsers.length > 0 ? (
+                    likedUsers.map((user, index) => (
+                      <div key={index} className="px-2">{user.name}</div>
+                    ))
+                  ) : (
+                    <div className="px-2">아직 좋아요가 없습니다</div>
+                  )}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <Button 
             variant="ghost" 
             size="sm" 
