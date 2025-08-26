@@ -9,13 +9,26 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useSupabase } from './SupabaseProvider'
 import { useToast } from '../hooks/use-toast'
-import { User, MoreVertical, Pencil, Trash2 } from 'lucide-react'
+import { User, MoreVertical, Pencil, Trash2, ThumbsUp } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from './ui/tooltip'
+
+interface LikeWithUser {
+  comment_id: string
+  users: {
+    name: string
+  }
+}
 
 interface Comment {
   id: string
@@ -23,6 +36,8 @@ interface Comment {
   user_id: string
   created_at: string
   author: string
+  likes_count: number
+  liked_users?: { name: string }[]
 }
 
 interface CommentModalProps {
@@ -37,31 +52,187 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
   const [comments, setComments] = useState<Comment[]>([])
   const [editingComment, setEditingComment] = useState<string | null>(null)
   const [editContent, setEditContent] = useState('')
+  const [likedComments, setLikedComments] = useState<Record<string, boolean>>({})
   const { user, supabase } = useSupabase()
   const { toast } = useToast()
 
-  // 댓글 목록 불러오기
-  const loadComments = async () => {
-    const { data, error } = await supabase
-      .from('comments')
-      .select(`
-        *,
-        users (
-          name
-        )
-      `)
-      .eq('post_id', postId)
-      .order('created_at', { ascending: true })
+  // 댓글 좋아요 상태 확인
+  const checkLikeStatus = async () => {
+    if (!user || comments.length === 0) return
 
-    if (error) {
-      console.error('Error loading comments:', error)
+    try {
+      const { data, error } = await supabase
+        .from('comment_likes')
+        .select('comment_id')
+        .eq('user_id', user.id)
+        .in('comment_id', comments.map(c => c.id))
+
+      if (error) {
+        console.error('Error checking like status:', error)
+        return
+      }
+
+      if (!data) return
+
+      const likedStatus = data.reduce((acc, like) => ({
+        ...acc,
+        [like.comment_id]: true
+      }), {})
+
+      setLikedComments(likedStatus)
+    } catch (error) {
+      console.error('Error in checkLikeStatus:', error)
+    }
+  }
+
+  // 댓글 좋아요 처리
+  const handleLike = async (commentId: string) => {
+    if (!user) {
+      toast({
+        title: '로그인 필요',
+        description: '좋아요를 누르려면 로그인이 필요합니다.',
+        variant: 'destructive',
+      })
       return
     }
 
-    setComments(data.map(comment => ({
-      ...comment,
-      author: comment.users?.name || 'Unknown'
-    })))
+    const isLiked = likedComments[commentId]
+
+    try {
+      if (isLiked) {
+        // 좋아요 취소
+        const { error } = await supabase
+          .from('comment_likes')
+          .delete()
+          .match({ comment_id: commentId, user_id: user.id })
+
+        if (error) {
+          console.error('Error removing like:', error)
+          throw error
+        }
+
+        // 성공적으로 삭제된 경우에만 상태 업데이트
+        setLikedComments(prev => ({
+          ...prev,
+          [commentId]: false
+        }))
+        setComments(prev => prev.map(comment => 
+          comment.id === commentId
+            ? { 
+                ...comment, 
+                likes_count: Math.max(0, comment.likes_count - 1),
+                liked_users: comment.liked_users?.filter(u => u.name !== user?.user_metadata?.name) || []
+              }
+            : comment
+        ))
+      } else {
+        // 좋아요 추가
+        const { error } = await supabase
+          .from('comment_likes')
+          .insert([{
+            comment_id: commentId,
+            user_id: user.id
+          }])
+
+        if (error) {
+          console.error('Error adding like:', error)
+          throw error
+        }
+
+        // 성공적으로 추가된 경우에만 상태 업데이트
+        setLikedComments(prev => ({
+          ...prev,
+          [commentId]: true
+        }))
+        setComments(prev => prev.map(comment => 
+          comment.id === commentId
+            ? { 
+                ...comment, 
+                likes_count: comment.likes_count + 1,
+                liked_users: [
+                  ...(comment.liked_users || []),
+                  { name: user?.user_metadata?.name || 'Unknown' }
+                ]
+              }
+            : comment
+        ))
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error)
+      toast({
+        title: '오류 발생',
+        description: '좋아요 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  // 댓글 목록 불러오기
+  const loadComments = async () => {
+    try {
+      // 댓글 기본 정보와 좋아요 수를 가져옵니다
+      const { data: commentsData, error: commentsError } = await supabase
+        .from('comments')
+        .select(`
+          *,
+          users (
+            name
+          ),
+          comment_likes (
+            user_id,
+            users (
+              name
+            )
+          )
+        `)
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true })
+
+      if (commentsError) {
+        console.error('Error loading comments:', commentsError)
+        toast({
+          title: '댓글 로딩 실패',
+          description: '댓글을 불러오는 중 오류가 발생했습니다.',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      if (!commentsData) return
+
+      // 댓글 정보를 가공합니다
+      const processedComments = commentsData.map(comment => {
+        const likes = comment.comment_likes || []
+        const likedUsers = likes.map(like => ({
+          name: like.users?.name || 'Unknown'
+        }))
+
+        return {
+          ...comment,
+          author: comment.users?.name || 'Unknown',
+          likes_count: likes.length,
+          liked_users: likedUsers
+        }
+      })
+
+      setComments(processedComments)
+
+      // 현재 사용자의 좋아요 상태를 설정합니다
+      if (user) {
+        const likedStatus = processedComments.reduce((acc, comment) => ({
+          ...acc,
+          [comment.id]: (comment.comment_likes || []).some(like => like.user_id === user.id)
+        }), {})
+        setLikedComments(likedStatus)
+      }
+    } catch (error) {
+      console.error('Error in loadComments:', error)
+      toast({
+        title: '오류 발생',
+        description: '댓글을 불러오는 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+    }
   }
 
   // 댓글 작성
@@ -144,11 +315,11 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
     }
   }, [isOpen])
 
-  // 실시간 댓글 업데이트를 위한 구독
+  // 실시간 업데이트를 위한 구독
   useEffect(() => {
     if (!isOpen) return
 
-    const channel = supabase
+    const commentsChannel = supabase
       .channel('comments_changes')
       .on(
         'postgres_changes',
@@ -165,8 +336,24 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
       )
       .subscribe()
 
+    const likesChannel = supabase
+      .channel('comment_likes_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'comment_likes'
+        },
+        () => {
+          loadComments()
+        }
+      )
+      .subscribe()
+
     return () => {
-      channel.unsubscribe()
+      commentsChannel.unsubscribe()
+      likesChannel.unsubscribe()
     }
   }, [isOpen, postId])
 
@@ -238,7 +425,41 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm whitespace-pre-wrap">{comment.content}</p>
+                  <>
+                    <p className="text-sm whitespace-pre-wrap mb-2">{comment.content}</p>
+                    <div className="flex items-center gap-2">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="inline-block">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleLike(comment.id)}
+                                className={`h-6 px-2 hover:text-foreground ${
+                                  likedComments[comment.id] ? 'text-blue-500' : 'text-gray-500'
+                                }`}
+                              >
+                                <ThumbsUp className="h-3 w-3 mr-1" />
+                                {comment.likes_count || 0}
+                              </Button>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" align="center">
+                            <div className="text-sm py-1">
+                              {comment.liked_users && comment.liked_users.length > 0 ? (
+                                comment.liked_users.map((user, index) => (
+                                  <div key={index} className="px-2">{user.name}</div>
+                                ))
+                              ) : (
+                                <div className="px-2">아직 좋아요가 없습니다</div>
+                              )}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  </>
                 )}
               </div>
             ))}
