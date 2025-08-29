@@ -33,7 +33,7 @@ export function RetroBoard() {
     const sortPosts = (posts: typeof uiPosts) => {
       return [...posts].sort((a, b) => {
         if (sortBy === 'likes') {
-          // 좋아요 수가 다르면 좋아요 수로 정렬
+          // 좋아요 수로 정렬 (내림차순)
           const likeDiff = b.likes - a.likes
           if (likeDiff !== 0) return likeDiff
           // 좋아요 수가 같으면 최신순으로 정렬
@@ -62,7 +62,6 @@ export function RetroBoard() {
 
   const loadPosts = async () => {
     try {
-      // posts 테이블과 likes 테이블을 조인하여 정확한 좋아요 수를 가져옴
       const { data, error } = await supabase
         .from('posts')
         .select(`
@@ -70,15 +69,31 @@ export function RetroBoard() {
           users (
             name
           ),
-          likes:likes_count
+          likes:likes (
+            id
+          )
         `)
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.error('Error loading posts:', error)
+        return
+      }
 
-      setRawPosts(data as (DBPost & { users: { name: string } })[])
+      if (!data) {
+        console.error('No data returned from posts query')
+        return
+      }
+
+      // 각 포스트의 좋아요 수를 계산
+      const postsWithLikeCounts = data.map(post => ({
+        ...post,
+        likes_count: post.likes?.length || 0
+      }))
+
+      setRawPosts(postsWithLikeCounts)
     } catch (error) {
-      console.error('Error loading posts:', error)
+      console.error('Error in loadPosts:', error)
     }
   }
 

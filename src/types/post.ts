@@ -9,7 +9,8 @@ export interface Post {
   author_id: string
   created_at: string
   updated_at: string
-  likes_count: number
+  likes?: { id: string }[]
+  likes_count?: number
   comments_count: number
   users?: {
     name: string

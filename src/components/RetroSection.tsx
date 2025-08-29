@@ -84,10 +84,11 @@ export const RetroSection = ({
             <p>첫 번째 포스팅을 작성해보세요!</p>
           </div>
         ) : (
-          posts.map((post) => (
+          posts.map((post, index) => (
             <PostCard
               key={post.id}
               post={post}
+              postNumber={posts.length - index}
               onLike={() => onLikePost(post.id)}
               onComment={(comment) => onCommentPost(post.id, comment)}
               onPostUpdated={onPostUpdated}

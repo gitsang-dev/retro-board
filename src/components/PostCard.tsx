@@ -29,12 +29,13 @@ interface LikeWithUser {
 
 interface PostCardProps {
   post: Post
+  postNumber: number
   onLike: () => void
   onComment: (comment: string) => void
   onPostUpdated: () => void
 }
 
-export function PostCard({ post, onPostUpdated }: PostCardProps) {
+export function PostCard({ post, postNumber, onPostUpdated }: PostCardProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isCommentModalOpen, setIsCommentModalOpen] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
@@ -347,7 +348,10 @@ export function PostCard({ post, onPostUpdated }: PostCardProps) {
           )}
         </div>
 
-        <h3 className="text-lg font-medium mb-2">{post.title}</h3>
+        <h3 className="text-lg font-medium mb-2">
+          <span className="text-muted-foreground font-normal">#{postNumber}</span>{' '}
+          {post.title}
+        </h3>
         <p className="text-sm text-muted-foreground whitespace-pre-wrap">{post.content}</p>
         {post.note && (
           <div className="mt-3 text-sm bg-slate-100 p-3 rounded">

@@ -5,9 +5,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
+} from "@/components/ui/dialog"
+import { Button } from './ui/button'
+import { Textarea } from './ui/textarea'
 import { useSupabase } from './SupabaseProvider'
 import { useToast } from '../hooks/use-toast'
 import { User, MoreVertical, Pencil, Trash2, ThumbsUp } from 'lucide-react'
@@ -91,25 +91,25 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
     if (!user || comments.length === 0) return
 
     try {
-    const { data, error } = await supabase
-      .from('comment_likes')
-      .select('comment_id')
-      .eq('user_id', user.id)
-      .in('comment_id', comments.map(c => c.id))
+      const { data, error } = await supabase
+        .from('comment_likes')
+        .select('comment_id')
+        .eq('user_id', user.id)
+        .in('comment_id', comments.map(c => c.id))
 
-    if (error) {
-      console.error('Error checking like status:', error)
-      return
-    }
+      if (error) {
+        console.error('Error checking like status:', error)
+        return
+      }
 
       if (!data) return
 
-    const likedStatus = data.reduce((acc, like) => ({
-      ...acc,
-      [like.comment_id]: true
-    }), {})
+      const likedStatus = data.reduce((acc, like) => ({
+        ...acc,
+        [like.comment_id]: true
+      }), {})
 
-    setLikedComments(likedStatus)
+      setLikedComments(likedStatus)
     } catch (error) {
       console.error('Error in checkLikeStatus:', error)
     }
@@ -167,15 +167,15 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
         if (error) {
           console.error('Error adding like:', error)
           throw error
-      }
+        }
 
         // 성공적으로 추가된 경우에만 상태 업데이트
-      setLikedComments(prev => ({
-        ...prev,
+        setLikedComments(prev => ({
+          ...prev,
           [commentId]: true
-      }))
-      setComments(prev => prev.map(comment => 
-        comment.id === commentId
+        }))
+        setComments(prev => prev.map(comment => 
+          comment.id === commentId
             ? { 
                 ...comment, 
                 likes_count: comment.likes_count + 1,
@@ -184,8 +184,8 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
                   { name: user?.user_metadata?.name || 'Unknown' }
                 ]
               }
-          : comment
-      ))
+            : comment
+        ))
       }
     } catch (error) {
       console.error('Error toggling like:', error)
@@ -201,32 +201,32 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
   const loadComments = async () => {
     try {
       // 댓글 기본 정보와 좋아요 수를 가져옵니다
-    const { data: commentsData, error: commentsError } = await supabase
-      .from('comments')
-      .select(`
-        *,
-        users (
-          name
-        ),
+      const { data: commentsData, error: commentsError } = await supabase
+        .from('comments')
+        .select(`
+          *,
+          users (
+            name
+          ),
           comment_likes (
             user_id,
             users (
               name
             )
           )
-      `)
-      .eq('post_id', postId)
-      .order('created_at', { ascending: true })
+        `)
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true })
 
-    if (commentsError) {
-      console.error('Error loading comments:', commentsError)
+      if (commentsError) {
+        console.error('Error loading comments:', commentsError)
         toast({
           title: '댓글 로딩 실패',
           description: '댓글을 불러오는 중 오류가 발생했습니다.',
           variant: 'destructive',
         })
-      return
-    }
+        return
+      }
 
       if (!commentsData) return
 
@@ -238,8 +238,8 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
         }))
 
         return {
-      ...comment,
-      author: comment.users?.name || 'Unknown',
+          ...comment,
+          author: comment.users?.name || 'Unknown',
           likes_count: likes.length,
           liked_users: likedUsers
         }
@@ -248,7 +248,7 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
       setComments(processedComments)
 
       // 현재 사용자의 좋아요 상태를 설정합니다
-    if (user) {
+      if (user) {
         const likedStatus = processedComments.reduce((acc, comment) => ({
           ...acc,
           [comment.id]: (comment.comment_likes || []).some(like => like.user_id === user.id)
@@ -272,23 +272,23 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
     try {
       // 댓글 작성
       const { data: commentData, error: commentError } = await supabase
-      .from('comments')
-      .insert({
-        post_id: postId,
-        user_id: user?.id,
-        content: newComment.trim()
-      })
+        .from('comments')
+        .insert({
+          post_id: postId,
+          user_id: user?.id,
+          content: newComment.trim()
+        })
         .select()
         .single()
 
       if (commentError) {
-      toast({
-        title: '댓글 작성 실패',
-        description: '댓글을 작성하는 중 오류가 발생했습니다.',
-        variant: 'destructive',
-      })
-      return
-    }
+        toast({
+          title: '댓글 작성 실패',
+          description: '댓글을 작성하는 중 오류가 발생했습니다.',
+          variant: 'destructive',
+        })
+        return
+      }
 
       // 포스트 작성자에게 알림 생성 (자신의 포스트에는 알림 생성 안 함)
       const { data: postData } = await supabase
@@ -314,9 +314,9 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
         }
       }
 
-    setNewComment('')
-    await loadComments()
-    onCommentAdded()
+      setNewComment('')
+      await loadComments()
+      onCommentAdded()
     } catch (error) {
       console.error('Error in handleSubmit:', error)
       toast({
@@ -463,110 +463,116 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
         <div className="flex flex-col gap-4">
           {/* 댓글 목록 */}
           <div className="space-y-4">
-            {comments.map(comment => (
-              <div key={comment.id} className="p-3 bg-muted/30 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <User className="h-4 w-4" />
-                    <span>{comment.author}</span>
+            {comments.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                아직 댓글이 없습니다. 첫 댓글을 작성해보세요!
+              </div>
+            ) : (
+              comments.map(comment => (
+                <div key={comment.id} className="p-3 bg-muted/30 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <User className="h-4 w-4" />
+                      <span>{comment.author}</span>
+                    </div>
+                    {user?.id === comment.user_id && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem 
+                            onClick={() => {
+                              setEditingComment(comment.id)
+                              setEditContent(comment.content)
+                            }}
+                          >
+                            <Pencil className="h-4 w-4 mr-2" />
+                            수정
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleDelete(comment.id)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            삭제
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
-                  {user?.id === comment.user_id && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <MoreVertical className="h-4 w-4" />
+                  {editingComment === comment.id ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        className="min-h-[60px]"
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditingComment(null)}
+                        >
+                          취소
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem 
-                          onClick={() => {
-                            setEditingComment(comment.id)
-                            setEditContent(comment.content)
-                          }}
+                        <Button
+                          size="sm"
+                          onClick={() => handleEdit(comment.id)}
                         >
-                          <Pencil className="h-4 w-4 mr-2" />
-                          수정
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => handleDelete(comment.id)}
-                          className="text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          삭제
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          저장
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-sm whitespace-pre-wrap mb-2">
+                        {comment.content.split(/(@[^\s]+)/).map((part, index) => {
+                          if (part.startsWith('@')) {
+                            return <span key={index} className="text-blue-500 hover:underline">{part}</span>
+                          }
+                          return part
+                        })}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="inline-block">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleLike(comment.id)}
+                                  className={`h-6 px-2 hover:text-foreground ${
+                                    likedComments[comment.id] ? 'text-blue-500' : 'text-gray-500'
+                                  }`}
+                                >
+                                  <ThumbsUp className="h-3 w-3 mr-1" />
+                                  {comment.likes_count || 0}
+                                </Button>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" align="center">
+                              <div className="text-sm py-1">
+                                {comment.liked_users && comment.liked_users.length > 0 ? (
+                                  comment.liked_users.map((user, index) => (
+                                    <div key={index} className="px-2">{user.name}</div>
+                                  ))
+                                ) : (
+                                  <div className="px-2">아직 좋아요가 없습니다</div>
+                                )}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </>
                   )}
                 </div>
-                {editingComment === comment.id ? (
-                  <div className="space-y-2">
-                    <Textarea
-                      value={editContent}
-                      onChange={(e) => setEditContent(e.target.value)}
-                      className="min-h-[60px]"
-                    />
-                    <div className="flex gap-2 justify-end">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setEditingComment(null)}
-                      >
-                        취소
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => handleEdit(comment.id)}
-                      >
-                        저장
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-sm whitespace-pre-wrap mb-2">
-                      {comment.content.split(/(@[^\s]+)/).map((part, index) => {
-                        if (part.startsWith('@')) {
-                          return <span key={index} className="text-blue-500 hover:underline">{part}</span>
-                        }
-                        return part
-                      })}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="inline-block">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleLike(comment.id)}
-                                className={`h-6 px-2 hover:text-foreground ${
-                                  likedComments[comment.id] ? 'text-blue-500' : 'text-gray-500'
-                                }`}
-                              >
-                                <ThumbsUp className="h-3 w-3 mr-1" />
-                                {comment.likes_count || 0}
-                              </Button>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" align="center">
-                            <div className="text-sm py-1">
-                              {comment.liked_users && comment.liked_users.length > 0 ? (
-                                comment.liked_users.map((user, index) => (
-                                  <div key={index} className="px-2">{user.name}</div>
-                                ))
-                              ) : (
-                                <div className="px-2">아직 좋아요가 없습니다</div>
-                              )}
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           {/* 댓글 작성 */}
@@ -664,4 +670,4 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
       </DialogContent>
     </Dialog>
   )
-} 
+}
