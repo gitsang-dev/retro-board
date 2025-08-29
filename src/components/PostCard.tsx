@@ -219,16 +219,35 @@ export function PostCard({ post, onPostUpdated }: PostCardProps) {
         setLikedUsers(prev => prev.filter(u => u.name !== user?.user_metadata?.name))
       } else {
         // 좋아요 추가
-        const { error } = await supabase
+        const { error: likeError } = await supabase
           .from('likes')
           .insert([{
             post_id: post.id,
             user_id: user.id
           }])
 
-        if (error) {
-          console.error('Error adding like:', error)
-          throw error
+        if (likeError) {
+          console.error('Error adding like:', likeError)
+          throw likeError
+        }
+
+        // 알림 생성 (자신의 게시물이 아닌 경우에만)
+        if (post.authorId !== user.id) {
+          const { error: notificationError } = await supabase
+            .from('notifications')
+            .insert([{
+              recipient_id: post.authorId,
+              sender_id: user.id,
+              post_id: post.id,
+              type: 'like',
+              content: null,
+              is_read: false
+            }])
+
+          if (notificationError) {
+            console.error('Error creating notification:', notificationError)
+            // 알림 생성 실패는 좋아요 기능에 영향을 주지 않도록 함
+          }
         }
 
         // 성공적으로 추가된 경우에만 상태 업데이트

@@ -62,25 +62,25 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
     if (!user || comments.length === 0) return
 
     try {
-      const { data, error } = await supabase
-        .from('comment_likes')
-        .select('comment_id')
-        .eq('user_id', user.id)
-        .in('comment_id', comments.map(c => c.id))
+    const { data, error } = await supabase
+      .from('comment_likes')
+      .select('comment_id')
+      .eq('user_id', user.id)
+      .in('comment_id', comments.map(c => c.id))
 
-      if (error) {
-        console.error('Error checking like status:', error)
-        return
-      }
+    if (error) {
+      console.error('Error checking like status:', error)
+      return
+    }
 
       if (!data) return
 
-      const likedStatus = data.reduce((acc, like) => ({
-        ...acc,
-        [like.comment_id]: true
-      }), {})
+    const likedStatus = data.reduce((acc, like) => ({
+      ...acc,
+      [like.comment_id]: true
+    }), {})
 
-      setLikedComments(likedStatus)
+    setLikedComments(likedStatus)
     } catch (error) {
       console.error('Error in checkLikeStatus:', error)
     }
@@ -138,15 +138,15 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
         if (error) {
           console.error('Error adding like:', error)
           throw error
-        }
+      }
 
         // 성공적으로 추가된 경우에만 상태 업데이트
-        setLikedComments(prev => ({
-          ...prev,
+      setLikedComments(prev => ({
+        ...prev,
           [commentId]: true
-        }))
-        setComments(prev => prev.map(comment => 
-          comment.id === commentId
+      }))
+      setComments(prev => prev.map(comment => 
+        comment.id === commentId
             ? { 
                 ...comment, 
                 likes_count: comment.likes_count + 1,
@@ -155,8 +155,8 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
                   { name: user?.user_metadata?.name || 'Unknown' }
                 ]
               }
-            : comment
-        ))
+          : comment
+      ))
       }
     } catch (error) {
       console.error('Error toggling like:', error)
@@ -172,32 +172,32 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
   const loadComments = async () => {
     try {
       // 댓글 기본 정보와 좋아요 수를 가져옵니다
-      const { data: commentsData, error: commentsError } = await supabase
-        .from('comments')
-        .select(`
-          *,
-          users (
-            name
-          ),
+    const { data: commentsData, error: commentsError } = await supabase
+      .from('comments')
+      .select(`
+        *,
+        users (
+          name
+        ),
           comment_likes (
             user_id,
             users (
               name
             )
           )
-        `)
-        .eq('post_id', postId)
-        .order('created_at', { ascending: true })
+      `)
+      .eq('post_id', postId)
+      .order('created_at', { ascending: true })
 
-      if (commentsError) {
-        console.error('Error loading comments:', commentsError)
+    if (commentsError) {
+      console.error('Error loading comments:', commentsError)
         toast({
           title: '댓글 로딩 실패',
           description: '댓글을 불러오는 중 오류가 발생했습니다.',
           variant: 'destructive',
         })
-        return
-      }
+      return
+    }
 
       if (!commentsData) return
 
@@ -209,8 +209,8 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
         }))
 
         return {
-          ...comment,
-          author: comment.users?.name || 'Unknown',
+      ...comment,
+      author: comment.users?.name || 'Unknown',
           likes_count: likes.length,
           liked_users: likedUsers
         }
@@ -219,7 +219,7 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
       setComments(processedComments)
 
       // 현재 사용자의 좋아요 상태를 설정합니다
-      if (user) {
+    if (user) {
         const likedStatus = processedComments.reduce((acc, comment) => ({
           ...acc,
           [comment.id]: (comment.comment_likes || []).some(like => like.user_id === user.id)
@@ -243,23 +243,23 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
     try {
       // 댓글 작성
       const { data: commentData, error: commentError } = await supabase
-        .from('comments')
-        .insert({
-          post_id: postId,
-          user_id: user?.id,
-          content: newComment.trim()
-        })
+      .from('comments')
+      .insert({
+        post_id: postId,
+        user_id: user?.id,
+        content: newComment.trim()
+      })
         .select()
         .single()
 
       if (commentError) {
-        toast({
-          title: '댓글 작성 실패',
-          description: '댓글을 작성하는 중 오류가 발생했습니다.',
-          variant: 'destructive',
-        })
-        return
-      }
+      toast({
+        title: '댓글 작성 실패',
+        description: '댓글을 작성하는 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      })
+      return
+    }
 
       // 포스트 작성자에게 알림 생성 (자신의 포스트에는 알림 생성 안 함)
       const { data: postData } = await supabase
@@ -272,12 +272,12 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
         const { error: notificationError } = await supabase
           .from('notifications')
           .insert({
-            user_id: postData.user_id,
-            type: 'comment',
+            recipient_id: postData.user_id,
+            sender_id: user?.id,
             post_id: postId,
-            comment_id: commentData.id,
-            from_user_id: user?.id,
-            content: '회원님의 게시글에 댓글을 남겼습니다.'
+            type: 'comment',
+            content: newComment.trim(),
+            is_read: false
           })
 
         if (notificationError) {
@@ -285,9 +285,9 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
         }
       }
 
-      setNewComment('')
-      await loadComments()
-      onCommentAdded()
+    setNewComment('')
+    await loadComments()
+    onCommentAdded()
     } catch (error) {
       console.error('Error in handleSubmit:', error)
       toast({
@@ -521,10 +521,19 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
               value={newComment}
               onChange={setNewComment}
               onMention={async (userId) => {
+                if (!user) {
+                  toast({
+                    title: '로그인 필요',
+                    description: '멘션하려면 로그인이 필요합니다.',
+                    variant: 'destructive',
+                  })
+                  return
+                }
+
                 try {
                   // 멘션된 사용자 정보 가져오기
                   const { data: userData, error: userError } = await supabase
-                    .from('users')
+                    .from('profiles')  // users 대신 profiles 테이블 사용
                     .select('name')
                     .eq('id', userId)
                     .single()
@@ -536,9 +545,9 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
 
                   // 현재 사용자 정보 가져오기
                   const { data: currentUserData, error: currentUserError } = await supabase
-                    .from('users')
+                    .from('profiles')  // users 대신 profiles 테이블 사용
                     .select('name')
-                    .eq('id', user?.id)
+                    .eq('id', user.id)
                     .single()
 
                   if (currentUserError) {
@@ -547,17 +556,18 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
                   }
 
                   // 멘션 알림 생성
-                  const { error: notificationError } = await supabase
+                  const { data: notificationData, error: notificationError } = await supabase
                     .from('notifications')
                     .insert({
-                      user_id: userId,
-                      type: 'mention',
+                      recipient_id: userId,
+                      sender_id: user.id,
                       post_id: postId,
-                      from_user_id: user?.id,
-                      content: `${currentUserData.name}님이 댓글에서 회원님을 멘션했습니다.`,
-                      created_at: new Date().toISOString(),
+                      type: 'mention',
+                      content: newComment.trim(),
                       is_read: false
                     })
+                    .select()
+                    .single()
 
                   if (notificationError) {
                     console.error('Error creating mention notification:', notificationError)
@@ -568,11 +578,11 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
                     title: '멘션 완료',
                     description: `${userData.name}님을 멘션했습니다.`,
                   })
-                } catch (error) {
+                } catch (error: any) {
                   console.error('Error in onMention:', error)
                   toast({
                     title: '알림 생성 실패',
-                    description: '멘션 알림을 생성하는 중 오류가 발생했습니다.',
+                    description: error.message || '멘션 알림을 생성하는 중 오류가 발생했습니다.',
                     variant: 'destructive',
                   })
                 }
@@ -588,4 +598,4 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
       </DialogContent>
     </Dialog>
   )
-}
+} 
