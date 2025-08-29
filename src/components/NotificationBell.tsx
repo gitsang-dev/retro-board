@@ -122,7 +122,16 @@ export default function NotificationBell() {
                     "flex items-start gap-3 p-4 hover:bg-muted/50 transition-colors",
                     !notification.is_read && "bg-muted/30"
                   )}
-                  onClick={() => handleMarkAsRead(notification.id)}
+                  onClick={() => {
+                    handleMarkAsRead(notification.id);
+                    // 알림 팝오버 닫기
+                    setIsOpen(false);
+                    // 해당 포스트의 댓글 모달 열기 이벤트 발생
+                    const postElement = document.querySelector(`[data-post-id="${notification.post_id}"]`);
+                    if (postElement) {
+                      postElement.dispatchEvent(new Event('openComments', { bubbles: true }));
+                    }
+                  }}
                 >
                   <img
                     src={notification.sender?.avatar_url}

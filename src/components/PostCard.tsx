@@ -119,6 +119,12 @@ export function PostCard({ post, onPostUpdated }: PostCardProps) {
   }
 
   useEffect(() => {
+    // 댓글 모달 열기 이벤트 리스너 추가
+    const handleOpenComments = () => {
+      setIsCommentModalOpen(true);
+    };
+    document.querySelector(`[data-post-id="${post.id}"]`)?.addEventListener('openComments', handleOpenComments);
+
     checkLikeStatus()
     getLikesCount()
     getCommentsCount()
@@ -161,6 +167,8 @@ export function PostCard({ post, onPostUpdated }: PostCardProps) {
     return () => {
       likesChannel.unsubscribe()
       commentsChannel.unsubscribe()
+      // 이벤트 리스너 제거
+      document.querySelector(`[data-post-id="${post.id}"]`)?.removeEventListener('openComments', handleOpenComments);
     }
   }, [post.id, user?.id])
 
@@ -286,7 +294,7 @@ export function PostCard({ post, onPostUpdated }: PostCardProps) {
   }
 
   return (
-    <Card className="bg-white">
+    <Card className="bg-white" data-post-id={post.id}>
       <CardContent className="p-4">
         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
           <div className="flex items-center gap-1">

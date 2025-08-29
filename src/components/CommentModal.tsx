@@ -397,7 +397,7 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
-        className="sm:max-w-[425px]"
+        className="sm:max-w-[425px] max-h-[80vh] overflow-y-auto"
         aria-describedby="comment-modal-description"
       >
         <div id="comment-modal-description" className="sr-only">
