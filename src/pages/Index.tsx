@@ -3,6 +3,7 @@ import { useSupabase } from "@/components/SupabaseProvider"
 import { Button } from "@/components/ui/button"
 import { RetroBoard } from "@/components/RetroBoard"
 import { useToast } from "@/hooks/use-toast"
+import NotificationBell from "@/components/NotificationBell"
 
 export default function Index() {
   const { user, supabase } = useSupabase()
@@ -97,6 +98,7 @@ export default function Index() {
           </div>
           <div className="flex items-center justify-between sm:justify-end gap-4">
             <span className="text-sm sm:text-base text-gray-600">{user.email}</span>
+            <NotificationBell />
             <Button variant="outline" size="sm" className="whitespace-nowrap" onClick={handleLogout}>
               로그아웃
             </Button>
