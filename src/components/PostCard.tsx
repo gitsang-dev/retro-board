@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Card, CardContent } from './ui/card'
+import { cn } from '@/lib/utils'
 import { Button } from './ui/button'
 import { ThumbsUp, MessageCircle, MoreVertical, Pencil, Trash2, User, Clock } from 'lucide-react'
 import {
