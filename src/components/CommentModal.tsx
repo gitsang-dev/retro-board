@@ -264,15 +264,15 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
       // 포스트 작성자에게 알림 생성 (자신의 포스트에는 알림 생성 안 함)
       const { data: postData } = await supabase
         .from('posts')
-        .select('user_id')
+        .select('author_id')
         .eq('id', postId)
         .single()
 
-      if (postData && postData.user_id !== user?.id) {
+      if (postData && postData.author_id !== user?.id) {
         const { error: notificationError } = await supabase
           .from('notifications')
           .insert({
-            recipient_id: postData.user_id,
+            recipient_id: postData.author_id,
             sender_id: user?.id,
             post_id: postId,
             type: 'comment',
