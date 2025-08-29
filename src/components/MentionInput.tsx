@@ -152,14 +152,14 @@ export function MentionInput({
                   className="px-2 py-1 hover:bg-gray-100 cursor-pointer"
                 >
                   {user.name}
-                </Command.Item>
+                </CommandItem>
               ))}
               {users.length === 0 && (
                 <div className="px-2 py-1 text-gray-500">
                   검색 결과가 없습니다
                 </div>
               )}
-            </Command.List>
+            </CommandList>
           </Command>
         </div>
       )}
