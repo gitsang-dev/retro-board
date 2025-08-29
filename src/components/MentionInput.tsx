@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Command } from 'cmdk'
+import { Command, CommandList, CommandItem } from '@/components/ui/command'
 import { useSupabase } from './SupabaseProvider'
 
 interface User {
@@ -144,9 +144,9 @@ export function MentionInput({
       {showSuggestions && (
         <div className="absolute bottom-full left-0 w-full bg-white border rounded-lg shadow-lg mb-1 max-h-48 overflow-y-auto">
           <Command>
-            <Command.List>
+            <CommandList>
               {users.map(user => (
-                <Command.Item
+                <CommandItem
                   key={user.id}
                   onSelect={() => handleSelectMention(user)}
                   className="px-2 py-1 hover:bg-gray-100 cursor-pointer"
