@@ -521,19 +521,31 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
               value={newComment}
               onChange={setNewComment}
               onMention={async (userId) => {
-                // 멘션 알림 생성
-                const { error } = await supabase
-                  .from('notifications')
-                  .insert({
-                    user_id: userId,
-                    type: 'mention',
-                    post_id: postId,
-                    from_user_id: user?.id,
-                    content: '댓글에서 회원님을 멘션했습니다.'
-                  })
+                try {
+                  // 멘션 알림 생성
+                  const { error } = await supabase
+                    .from('notifications')
+                    .insert({
+                      user_id: userId,
+                      type: 'mention',
+                      post_id: postId,
+                      from_user_id: user?.id,
+                      content: '댓글에서 회원님을 멘션했습니다.',
+                      created_at: new Date().toISOString(),
+                      is_read: false
+                    })
 
-                if (error) {
-                  console.error('Error creating mention notification:', error)
+                  if (error) {
+                    console.error('Error creating mention notification:', error)
+                    throw error
+                  }
+                } catch (error) {
+                  console.error('Error in onMention:', error)
+                  toast({
+                    title: '알림 생성 실패',
+                    description: '멘션 알림을 생성하는 중 오류가 발생했습니다.',
+                    variant: 'destructive',
+                  })
                 }
               }}
               placeholder="댓글을 작성하세요... (@를 입력하여 멘션)"
