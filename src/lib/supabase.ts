@@ -13,7 +13,11 @@ export const notificationApi = {
     const { data, error } = await supabase
       .from('notifications')
       .insert(notification)
-      .select('*, sender:users!sender_id(raw_user_meta_data, avatar_url), post:posts!post_id(title, section)')
+      .select(`
+        *,
+        sender:users!notifications_sender_id_fkey(raw_user_meta_data, avatar_url),
+        post:posts!notifications_post_id_fkey(title, section)
+      `)
       .single()
     
     if (error) throw error
@@ -24,7 +28,11 @@ export const notificationApi = {
   async list(userId: string, limit = 20) {
     const { data, error } = await supabase
       .from('notifications')
-      .select('*, sender:users!sender_id(raw_user_meta_data, avatar_url), post:posts!post_id(title, section)')
+      .select(`
+        *,
+        sender:users!notifications_sender_id_fkey(raw_user_meta_data, avatar_url),
+        post:posts!notifications_post_id_fkey(title, section)
+      `)
       .eq('recipient_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit)
