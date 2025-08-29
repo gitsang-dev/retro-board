@@ -1,20 +1,20 @@
 import { useEffect, useState } from 'react'
 import { Bell } from 'lucide-react'
-import { useUser } from '@supabase/auth-helpers-react'
-import { notificationApi } from '../lib/supabase'
-import { Notification } from '../types/notification'
-import { Button } from './ui/button'
+import { useSupabase } from './SupabaseProvider'
+import { notificationApi } from '@/lib/supabase'
+import { Notification } from '@/types/notification'
+import { Button } from '@/components/ui/button'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from './ui/popover'
-import { ScrollArea } from './ui/scroll-area'
-import { Badge } from './ui/badge'
-import { cn } from '../lib/utils'
+} from '@/components/ui/popover'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
 export function NotificationBell() {
-  const user = useUser()
+  const { user } = useSupabase()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
@@ -126,12 +126,12 @@ export function NotificationBell() {
                 >
                   <img
                     src={notification.sender?.avatar_url}
-                    alt={notification.sender?.name}
+                    alt={notification.sender?.raw_user_meta_data?.name}
                     className="w-8 h-8 rounded-full"
                   />
                   <div className="flex-1 space-y-1">
                     <p className="text-sm">
-                      <span className="font-medium">{notification.sender?.name}</span>
+                      <span className="font-medium">{notification.sender?.raw_user_meta_data?.name}</span>
                       {notification.type === 'like' && ' 님이 회고에 좋아요를 눌렀습니다'}
                       {notification.type === 'comment' && ' 님이 회고에 댓글을 남겼습니다'}
                       {notification.type === 'mention' && ' 님이 댓글에서 회원님을 언급했습니다'}

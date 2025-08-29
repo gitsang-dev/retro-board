@@ -533,8 +533,8 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
                 try {
                   // 멘션된 사용자 정보 가져오기
                   const { data: userData, error: userError } = await supabase
-                    .from('profiles')  // users 대신 profiles 테이블 사용
-                    .select('name')
+                    .from('users')
+                    .select('raw_user_meta_data')
                     .eq('id', userId)
                     .single()
 
@@ -545,14 +545,26 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
 
                   // 현재 사용자 정보 가져오기
                   const { data: currentUserData, error: currentUserError } = await supabase
-                    .from('profiles')  // users 대신 profiles 테이블 사용
-                    .select('name')
+                    .from('users')
+                    .select('raw_user_meta_data')
                     .eq('id', user.id)
                     .single()
 
                   if (currentUserError) {
                     console.error('Error fetching current user data:', currentUserError)
                     throw currentUserError
+                  }
+
+                  // 포스트가 유효한지 확인
+                  const { data: postData, error: postError } = await supabase
+                    .from('posts')
+                    .select('id')
+                    .eq('id', postId)
+                    .single()
+
+                  if (postError) {
+                    console.error('Error fetching post:', postError)
+                    throw postError
                   }
 
                   // 멘션 알림 생성
@@ -576,7 +588,7 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
 
                   toast({
                     title: '멘션 완료',
-                    description: `${userData.name}님을 멘션했습니다.`,
+                    description: `${userData.raw_user_meta_data.name}님을 멘션했습니다.`,
                   })
                 } catch (error: any) {
                   console.error('Error in onMention:', error)
