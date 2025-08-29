@@ -40,9 +40,15 @@ export function PostCard({ post, onPostUpdated }: PostCardProps) {
   const [likesCount, setLikesCount] = useState(post.likes)
   const [commentsCount, setCommentsCount] = useState(0)
   const [likedUsers, setLikedUsers] = useState<{ name: string }[]>([])
+  const [isHighlighted, setIsHighlighted] = useState(false)
   const { user, supabase } = useSupabase()
   const { toast } = useToast()
   const isAuthor = user?.id === post.authorId
+
+  const highlightPost = () => {
+    setIsHighlighted(true);
+    setTimeout(() => setIsHighlighted(false), 2000); // 2초 후 하이라이트 제거
+  };
 
   // 좋아요 상태 확인
   const checkLikeStatus = async () => {
@@ -123,7 +129,12 @@ export function PostCard({ post, onPostUpdated }: PostCardProps) {
     const handleOpenComments = () => {
       setIsCommentModalOpen(true);
     };
-    document.querySelector(`[data-post-id="${post.id}"]`)?.addEventListener('openComments', handleOpenComments);
+    const handleHighlight = () => {
+      highlightPost();
+    };
+    const element = document.querySelector(`[data-post-id="${post.id}"]`);
+    element?.addEventListener('openComments', handleOpenComments);
+    element?.addEventListener('highlight', handleHighlight);
 
     checkLikeStatus()
     getLikesCount()
@@ -168,7 +179,9 @@ export function PostCard({ post, onPostUpdated }: PostCardProps) {
       likesChannel.unsubscribe()
       commentsChannel.unsubscribe()
       // 이벤트 리스너 제거
-      document.querySelector(`[data-post-id="${post.id}"]`)?.removeEventListener('openComments', handleOpenComments);
+      const element = document.querySelector(`[data-post-id="${post.id}"]`);
+      element?.removeEventListener('openComments', handleOpenComments);
+      element?.removeEventListener('highlight', handleHighlight);
     }
   }, [post.id, user?.id])
 
@@ -294,7 +307,12 @@ export function PostCard({ post, onPostUpdated }: PostCardProps) {
   }
 
   return (
-    <Card className="bg-white" data-post-id={post.id}>
+    <Card 
+      className={cn(
+        "bg-white transition-all duration-300",
+        isHighlighted && "ring-2 ring-blue-500 ring-offset-2"
+      )} 
+      data-post-id={post.id}>
       <CardContent className="p-4">
         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
           <div className="flex items-center gap-1">

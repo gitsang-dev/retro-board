@@ -31,6 +31,14 @@ interface LikeWithUser {
   }
 }
 
+interface Post {
+  id: string;
+  title: string;
+  content: string;
+  section: 'keep' | 'problem' | 'try';
+  author: string;
+}
+
 interface Comment {
   id: string
   content: string
@@ -54,8 +62,29 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
   const [editingComment, setEditingComment] = useState<string | null>(null)
   const [editContent, setEditContent] = useState('')
   const [likedComments, setLikedComments] = useState<Record<string, boolean>>({})
+  const [post, setPost] = useState<Post | null>(null)
   const { user, supabase } = useSupabase()
   const { toast } = useToast()
+
+  // 포스트 정보를 가져오는 함수
+  const loadPost = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('id', postId)
+        .single();
+
+      if (error) {
+        console.error('Error loading post:', error);
+        return;
+      }
+
+      setPost(data);
+    } catch (error) {
+      console.error('Error in loadPost:', error);
+    }
+  };
 
   // 댓글 좋아요 상태 확인
   const checkLikeStatus = async () => {
@@ -348,7 +377,8 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
   // 모달이 열릴 때 댓글 목록 불러오기
   useEffect(() => {
     if (isOpen) {
-      loadComments()
+      loadPost();
+      loadComments();
     }
   }, [isOpen])
 
@@ -403,8 +433,32 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
         <div id="comment-modal-description" className="sr-only">
           댓글을 작성하고 관리하는 모달입니다.
         </div>
-        <DialogHeader>
-          <DialogTitle>댓글</DialogTitle>
+        <DialogHeader className="space-y-4">
+          <div className="flex items-center justify-between">
+            <DialogTitle>댓글</DialogTitle>
+            {post && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onClose();
+                  const postElement = document.querySelector(`[data-post-id="${post.id}"]`);
+                  if (postElement) {
+                    postElement.scrollIntoView({ behavior: 'smooth' });
+                    postElement.dispatchEvent(new Event('highlight'));
+                  }
+                }}
+              >
+                본문 확인
+              </Button>
+            )}
+          </div>
+          {post && (
+            <div className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg">
+              <div className="font-medium text-foreground mb-1">{post.title}</div>
+              <div className="line-clamp-2">{post.content}</div>
+            </div>
+          )}
         </DialogHeader>
         <div className="flex flex-col gap-4">
           {/* 댓글 목록 */}
