@@ -522,23 +522,52 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
               onChange={setNewComment}
               onMention={async (userId) => {
                 try {
+                  // 멘션된 사용자 정보 가져오기
+                  const { data: userData, error: userError } = await supabase
+                    .from('users')
+                    .select('name')
+                    .eq('id', userId)
+                    .single()
+
+                  if (userError) {
+                    console.error('Error fetching user data:', userError)
+                    throw userError
+                  }
+
+                  // 현재 사용자 정보 가져오기
+                  const { data: currentUserData, error: currentUserError } = await supabase
+                    .from('users')
+                    .select('name')
+                    .eq('id', user?.id)
+                    .single()
+
+                  if (currentUserError) {
+                    console.error('Error fetching current user data:', currentUserError)
+                    throw currentUserError
+                  }
+
                   // 멘션 알림 생성
-                  const { error } = await supabase
+                  const { error: notificationError } = await supabase
                     .from('notifications')
                     .insert({
                       user_id: userId,
                       type: 'mention',
                       post_id: postId,
                       from_user_id: user?.id,
-                      content: '댓글에서 회원님을 멘션했습니다.',
+                      content: `${currentUserData.name}님이 댓글에서 회원님을 멘션했습니다.`,
                       created_at: new Date().toISOString(),
                       is_read: false
                     })
 
-                  if (error) {
-                    console.error('Error creating mention notification:', error)
-                    throw error
+                  if (notificationError) {
+                    console.error('Error creating mention notification:', notificationError)
+                    throw notificationError
                   }
+
+                  toast({
+                    title: '멘션 완료',
+                    description: `${userData.name}님을 멘션했습니다.`,
+                  })
                 } catch (error) {
                   console.error('Error in onMention:', error)
                   toast({
