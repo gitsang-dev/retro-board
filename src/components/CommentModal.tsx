@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { MentionInput } from './MentionInput'
 import {
   Dialog,
   DialogContent,
@@ -239,26 +240,62 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
   const handleSubmit = async () => {
     if (!newComment.trim()) return
 
-    const { error } = await supabase
-      .from('comments')
-      .insert({
-        post_id: postId,
-        user_id: user?.id,
-        content: newComment.trim()
-      })
+    try {
+      // 댓글 작성
+      const { data: commentData, error: commentError } = await supabase
+        .from('comments')
+        .insert({
+          post_id: postId,
+          user_id: user?.id,
+          content: newComment.trim()
+        })
+        .select()
+        .single()
 
-    if (error) {
+      if (commentError) {
+        toast({
+          title: '댓글 작성 실패',
+          description: '댓글을 작성하는 중 오류가 발생했습니다.',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      // 포스트 작성자에게 알림 생성 (자신의 포스트에는 알림 생성 안 함)
+      const { data: postData } = await supabase
+        .from('posts')
+        .select('user_id')
+        .eq('id', postId)
+        .single()
+
+      if (postData && postData.user_id !== user?.id) {
+        const { error: notificationError } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: postData.user_id,
+            type: 'comment',
+            post_id: postId,
+            comment_id: commentData.id,
+            from_user_id: user?.id,
+            content: '회원님의 게시글에 댓글을 남겼습니다.'
+          })
+
+        if (notificationError) {
+          console.error('Error creating comment notification:', notificationError)
+        }
+      }
+
+      setNewComment('')
+      await loadComments()
+      onCommentAdded()
+    } catch (error) {
+      console.error('Error in handleSubmit:', error)
       toast({
-        title: '댓글 작성 실패',
-        description: '댓글을 작성하는 중 오류가 발생했습니다.',
+        title: '오류 발생',
+        description: '댓글 작성 중 오류가 발생했습니다.',
         variant: 'destructive',
       })
-      return
     }
-
-    setNewComment('')
-    await loadComments()
-    onCommentAdded()
   }
 
   // 댓글 수정
@@ -359,7 +396,13 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent 
+        className="sm:max-w-[425px]"
+        aria-describedby="comment-modal-description"
+      >
+        <div id="comment-modal-description" className="sr-only">
+          댓글을 작성하고 관리하는 모달입니다.
+        </div>
         <DialogHeader>
           <DialogTitle>댓글</DialogTitle>
         </DialogHeader>
@@ -426,7 +469,14 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
                   </div>
                 ) : (
                   <>
-                    <p className="text-sm whitespace-pre-wrap mb-2">{comment.content}</p>
+                    <p className="text-sm whitespace-pre-wrap mb-2">
+                      {comment.content.split(/(@[^\s]+)/).map((part, index) => {
+                        if (part.startsWith('@')) {
+                          return <span key={index} className="text-blue-500 hover:underline">{part}</span>
+                        }
+                        return part
+                      })}
+                    </p>
                     <div className="flex items-center gap-2">
                       <TooltipProvider>
                         <Tooltip>
@@ -467,11 +517,27 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
 
           {/* 댓글 작성 */}
           <div className="space-y-2">
-            <Textarea
+            <MentionInput
               value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="댓글을 작성하세요..."
-              className="min-h-[60px]"
+              onChange={setNewComment}
+              onMention={async (userId) => {
+                // 멘션 알림 생성
+                const { error } = await supabase
+                  .from('notifications')
+                  .insert({
+                    user_id: userId,
+                    type: 'mention',
+                    post_id: postId,
+                    from_user_id: user?.id,
+                    content: '댓글에서 회원님을 멘션했습니다.'
+                  })
+
+                if (error) {
+                  console.error('Error creating mention notification:', error)
+                }
+              }}
+              placeholder="댓글을 작성하세요... (@를 입력하여 멘션)"
+              className="min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             />
             <div className="flex justify-end">
               <Button onClick={handleSubmit}>댓글 작성</Button>
@@ -481,4 +547,4 @@ export function CommentModal({ isOpen, onClose, postId, onCommentAdded }: Commen
       </DialogContent>
     </Dialog>
   )
-} 
+}
