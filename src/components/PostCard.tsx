@@ -317,9 +317,12 @@ export function PostCard({ post, postNumber, onPostUpdated }: PostCardProps) {
       data-post-id={post.id}>
       <CardContent className="p-4">
         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
-          <div className="flex items-center gap-1">
-            <User className="h-4 w-4" />
-            {post.author}
+          <div className="flex items-center gap-3">
+            <span className="text-lg font-bold text-muted-foreground/70">#{postNumber}</span>
+            <div className="flex items-center gap-1">
+              <User className="h-4 w-4" />
+              {post.author}
+            </div>
           </div>
           <div className="flex items-center gap-1">
             <Clock className="h-4 w-4" />
