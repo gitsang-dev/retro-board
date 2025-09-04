@@ -31,7 +31,8 @@ export function RetroBoard() {
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       // 현재 포스트의 순서 찾기 (최신순으로 큰 번호)
-      const postNumber = sectionPosts.findIndex(p => p.id === post.id) + 1;
+      const index = sectionPosts.findIndex(p => p.id === post.id);
+      const postNumber = sectionPosts.length - index; // 최신 글이 가장 큰 번호를 가지도록
       
       return {
         id: post.id,
