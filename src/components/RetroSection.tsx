@@ -15,6 +15,7 @@ export interface Post {
   likes: number;
   comments: Comment[];
   createdAt: Date;
+  postNumber: number;
 }
 
 export interface Comment {
@@ -88,7 +89,7 @@ export const RetroSection = ({
             <PostCard
               key={post.id}
               post={post}
-              postNumber={posts.length - index}
+                                   postNumber={post.postNumber}
               onLike={() => onLikePost(post.id)}
               onComment={(comment) => onCommentPost(post.id, comment)}
               onPostUpdated={onPostUpdated}

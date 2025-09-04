@@ -15,19 +15,29 @@ export function RetroBoard() {
 
   // 포스트 데이터를 가공하고 정렬하는 로직
   const processedPosts = useMemo(() => {
-    // 1. 먼저 모든 포스트를 UIPost 형식으로 변환
-    const uiPosts = rawPosts.map(post => ({
-      id: post.id,
-      title: post.title,
-      content: post.content,
-      author: post.users?.name || 'Unknown',
-      authorId: post.author_id,
-      note: post.note,
-      likes: post.likes_count || 0,
-      comments: [],
-      createdAt: new Date(post.created_at),
-      section: post.section
-    }))
+    // 1. 먼저 생성 시간순으로 정렬하여 넘버링을 부여
+    const sortedByCreatedAt = [...rawPosts].sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    
+    // 2. 모든 포스트를 UIPost 형식으로 변환 (넘버링 포함)
+    const uiPosts = rawPosts.map(post => {
+      // 현재 포스트의 생성시간 기준 순서 찾기
+      const postNumber = sortedByCreatedAt.findIndex(p => p.id === post.id) + 1;
+      return {
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        author: post.users?.name || 'Unknown',
+        authorId: post.author_id,
+        note: post.note,
+        likes: post.likes_count || 0,
+        comments: [],
+        createdAt: new Date(post.created_at),
+        section: post.section,
+        postNumber: sortedByCreatedAt.length - postNumber + 1 // 역순으로 번호 부여
+      };
+    })
 
     // 2. 정렬 함수 정의
     const sortPosts = (posts: typeof uiPosts) => {
