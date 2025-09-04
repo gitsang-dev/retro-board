@@ -26,11 +26,11 @@ export function RetroBoard() {
 
     // 2. 각 섹션별로 생성 시간순 정렬 및 넘버링
     const numberedPosts = rawPosts.map(post => {
-      // 해당 섹션의 포스트들을 생성 시간순으로 정렬
+      // 해당 섹션의 포스트들을 생성 시간순으로 정렬 (최신순)
       const sectionPosts = postsBySection[post.section].sort((a, b) => 
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
-      // 현재 포스트의 순서 찾기 (오래된 순서대로 1, 2, 3...)
+      // 현재 포스트의 순서 찾기 (최신순으로 큰 번호)
       const postNumber = sectionPosts.findIndex(p => p.id === post.id) + 1;
       
       return {

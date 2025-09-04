@@ -89,7 +89,7 @@ export const RetroSection = ({
             <PostCard
               key={post.id}
               post={post}
-                                   postNumber={posts.filter(p => p.section === post.section).length - post.postNumber + 1}
+                                   postNumber={post.postNumber}
               onLike={() => onLikePost(post.id)}
               onComment={(comment) => onCommentPost(post.id, comment)}
               onPostUpdated={onPostUpdated}
