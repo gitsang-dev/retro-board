@@ -15,15 +15,24 @@ export function RetroBoard() {
 
   // 포스트 데이터를 가공하고 정렬하는 로직
   const processedPosts = useMemo(() => {
-    // 1. 먼저 생성 시간순으로 정렬하여 넘버링을 부여
-    const sortedByCreatedAt = [...rawPosts].sort((a, b) => 
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-    
-    // 2. 모든 포스트를 UIPost 형식으로 변환 (넘버링 포함)
-    const uiPosts = rawPosts.map(post => {
-      // 현재 포스트의 생성시간 기준 순서 찾기
-      const postNumber = sortedByCreatedAt.findIndex(p => p.id === post.id) + 1;
+    // 1. 섹션별로 포스트 그룹화
+    const postsBySection = rawPosts.reduce((acc, post) => {
+      if (!acc[post.section]) {
+        acc[post.section] = [];
+      }
+      acc[post.section].push(post);
+      return acc;
+    }, {} as Record<Section, DBPost[]>);
+
+    // 2. 각 섹션별로 생성 시간순 정렬 및 넘버링
+    const numberedPosts = rawPosts.map(post => {
+      // 해당 섹션의 포스트들을 생성 시간순으로 정렬
+      const sectionPosts = postsBySection[post.section].sort((a, b) => 
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+      // 현재 포스트의 순서 찾기 (오래된 순서대로 1, 2, 3...)
+      const postNumber = sectionPosts.findIndex(p => p.id === post.id) + 1;
+      
       return {
         id: post.id,
         title: post.title,
@@ -35,12 +44,12 @@ export function RetroBoard() {
         comments: [],
         createdAt: new Date(post.created_at),
         section: post.section,
-        postNumber: sortedByCreatedAt.length - postNumber + 1 // 역순으로 번호 부여
+        postNumber // 섹션별 독립적인 넘버링
       };
     })
 
-    // 2. 정렬 함수 정의
-    const sortPosts = (posts: typeof uiPosts) => {
+    // 3. 정렬 함수 정의
+    const sortPosts = (posts: typeof numberedPosts) => {
       return [...posts].sort((a, b) => {
         if (sortBy === 'likes') {
           // 좋아요 수로 정렬 (내림차순)
