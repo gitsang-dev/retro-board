@@ -65,7 +65,7 @@ export function RetroBoard() {
     }
 
     // 3. 정렬된 포스트를 섹션별로 분류
-    const sortedAndGrouped = sortPosts(uiPosts).reduce<Record<string, UIPost[]>>(
+    const sortedAndGrouped = sortPosts(numberedPosts).reduce<Record<string, UIPost[]>>(
       (acc, post) => {
         if (!acc[post.section]) {
           acc[post.section] = []
